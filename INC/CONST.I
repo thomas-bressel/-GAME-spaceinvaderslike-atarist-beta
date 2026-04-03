@@ -40,8 +40,8 @@ SHIP_SPR_EXP4   equ     SHIP_SPR_EXP3+SPR_SIZE  ; explosion frame 4
 ; Enemies sprites
 ; -------------------------------------------------------
 ENM_H           equ     10              ; enemy sprite height in lines
-ENM_BLOCK       equ     80              ; one block = 10*8 = 80 bytes
-ENM_SIZE        equ     160             ; sprite + mask = 160 bytes
+ENM_BLOCK       equ     ENM_H*8         ; one block = 10*8 = 80 bytes
+ENM_SIZE        equ     ENM_BLOCK*2     ; sprite + mask = 160 bytes
 
 ; ENEMIES1.BIN : types 1..20  (type 0 = dead/empty)
 ; ENEMIES2.BIN : types 21..31 + explosion frames 27..31

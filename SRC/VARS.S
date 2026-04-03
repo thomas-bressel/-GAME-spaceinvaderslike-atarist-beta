@@ -59,6 +59,8 @@ KEY_STATE:         ds.b    128         ; key state table: 1=pressed, 0=released
 ; ----------------------------------------------------------
 SHIP_X_CUR:        ds.w    1           ; current X position
 SHIP_X_PREV:       ds.w    1           ; previous X position (for bg restore)
+SHIP_KEY_PREV:     ds.b    1           ; previous direction key (for sprite change detection)
+                   ds.b    1           ; alignment
 
 ; ----------------------------------------------------------
 ; Sprite background save buffers (3 columns x SPR_H lines = 24*16 bytes)
