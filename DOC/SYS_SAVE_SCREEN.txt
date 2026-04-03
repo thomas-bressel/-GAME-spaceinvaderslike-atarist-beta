@@ -1,0 +1,105 @@
+SYS_SAVE_SCREEN - Explication technique
+========================================
+
+
+LE CODE
+-------
+
+SYS_SAVE_SCREEN:
+        move.l  _LOGBASE,SYS_SCR_ADDR_L
+        move.l  _LOGBASE,SCR_ADDR_L
+        move.l  _LOGBASE,SCR_ADDR2_L
+        sub.l   #SCR_BYTES+256,SCR_ADDR2_L  ; second buffer
+        rts
+
+Avec : _LOGBASE equ $44E  (defini dans TOS.I)
+       SCR_BYTES equ 32000 (defini dans CONST.I)
+
+
+LE CONCEPT CLE : $44E EST UNE VARIABLE SYSTEME DU TOS
+------------------------------------------------------
+
+Le TOS maintient une zone de variables systeme en RAM basse,
+entre $400 et $800 environ. Ces adresses sont des variables internes
+du systeme d'exploitation, toujours presentes, toujours a la meme
+adresse sur tout Atari ST.
+
+$44E est l'une d'elles : c'est un LONG (4 octets) qui contient
+l'adresse de debut du framebuffer logique courant. Le TOS la met
+a jour lui-meme quand tu changes la resolution ou l'adresse ecran.
+
+Donc "move.l _LOGBASE, ..." ne fait PAS un appel TRAP.
+Il lit directement cette case memoire comme une variable globale.
+C'est un acces direct a la RAM du systeme.
+
+NOTE IMPORTANTE : lire $44E directement n'est possible qu'en mode
+superviseur. C'est pourquoi SYS_SUPERVISOR est toujours appele
+avant SYS_SAVE_SCREEN dans la sequence de demarrage.
+
+
+CE QUE FAIT CHAQUE LIGNE
+-------------------------
+
+move.l  _LOGBASE,SYS_SCR_ADDR_L
+  -> Sauvegarde de l'adresse originale de l'ecran GEM.
+     Servira a restaurer l'ecran proprement a la sortie du programme.
+
+move.l  _LOGBASE,SCR_ADDR_L
+  -> Adresse du buffer principal, la ou le jeu va dessiner.
+
+move.l  _LOGBASE,SCR_ADDR2_L
+  -> Point de depart pour calculer l'adresse du second buffer.
+
+sub.l   #SCR_BYTES+256,SCR_ADDR2_L
+  -> On recule de 32256 octets avant l'ecran principal.
+     SCR_BYTES = 32000 octets (taille d'un ecran basse resolution)
+     + 256 octets de padding pour garantir l'alignement memoire
+     (l'ecran ST doit imperativement commencer sur un multiple de 256)
+
+
+LE DOUBLE BUFFER : POURQUOI LE SUB.L
+--------------------------------------
+
+En basse resolution, un ecran fait 32000 octets (320x200, 4 bitplanes).
+Pour eviter le scintillement, on dessine dans un buffer pendant que
+l'autre est affiche, puis on permute.
+
+On ne fait pas de Malloc pour reserver ce second buffer.
+On suppose qu'il y a de la RAM libre AVANT l'adresse de l'ecran
+principal. On pointe SCR_ADDR2_L dans cette zone que le TOS ne touche pas.
+
+
+CARTE MEMOIRE SIMPLIFIEE
+-------------------------
+
+  adresse basse
+  |----------------------------------|
+  |  variables TOS  ($0 a ~$800)     |
+  |----------------------------------|
+  |  programme + BSS                 |
+  |----------------------------------|
+  |  SCR_ADDR2  (buffer 2)           |  <-- $44E moins 32256 octets
+  |  (32000 octets)                  |
+  |----------------------------------|
+  |  zone d'alignement (256 octets)  |
+  |----------------------------------|
+  |  SCR_ADDR   (buffer 1)           |  <-- adresse lue dans $44E
+  |  (32000 octets)                  |
+  |----------------------------------|
+  adresse haute
+
+
+RESUME : IMPLICATION MEMOIRE
+------------------------------
+
+  $44E (_LOGBASE)    Variable systeme TOS, lue directement sans TRAP.
+                     Contient l'adresse du framebuffer logique actuel.
+
+  SYS_SCR_ADDR_L     Copie figee au demarrage.
+                     Sert uniquement a restaurer l'ecran a la sortie.
+
+  SCR_ADDR_L         Buffer principal : la ou le jeu dessine.
+
+  SCR_ADDR2_L        Second buffer pour le double buffering.
+                     Non alloue dynamiquement : pointe 32256 octets
+                     avant SCR_ADDR_L, dans la RAM libre existante.

@@ -1,0 +1,121 @@
+SYS_SAVE_PALETTE - Explication technique
+=========================================
+
+
+LE CODE
+-------
+
+SYS_SAVE_PALETTE:
+        PUSHALL
+        movem.l PAL_BASE,d0-d7
+        movem.l d0-d7,SYS_GEM_PAL
+        POPALL
+        rts
+
+Avec : PAL_BASE  equ $FFFF8240  (defini dans HW_ST.I)
+       SYS_GEM_PAL  ds.l 8      (defini dans VARS.S)
+
+
+LA MACRO PUSHALL / POPALL
+--------------------------
+
+Ces deux macros sont definies dans MACROS.I :
+
+PUSHALL  ->  movem.l d0-d7/a0-a6,-(sp)
+POPALL   ->  movem.l (sp)+,d0-d7/a0-a6
+
+Une macro n'est pas une fonction. L'assembleur copie le contenu
+de la macro directement a l'endroit ou elle est utilisee.
+Il n'y a pas de BSR, pas de RTS, pas d'overhead : le code est
+genere en ligne.
+
+PUSHALL empile les 15 registres suivants sur la pile superviseur :
+  - d0 a d7  : 8 registres de donnees (8 x 4 octets = 32 octets)
+  - a0 a a6  : 7 registres d'adresse  (7 x 4 octets = 28 octets)
+  Total : 60 octets empiles sur la pile, SP recule de 60.
+
+POPALL fait l'operation inverse : depile les 15 registres dans
+le meme ordre, SP remonte de 60.
+
+POURQUOI ICI : movem.l va utiliser d0-d7 comme registres de travail
+pour lire la palette. Sans PUSHALL/POPALL, on ecraserait le contenu
+de ces registres, ce qui corromprait le code appelant.
+La routine laisse donc la machine exactement dans l'etat ou elle
+l'a trouvee, registres compris.
+
+
+CE QU'EST PAL_BASE = $FFFF8240
+--------------------------------
+
+Sur l'Atari ST, les registres hardware sont mappes en memoire dans
+la zone $FFFF8000 et au-dela. Ce ne sont pas de la RAM ordinaire :
+lire ou ecrire a ces adresses parle directement au circuit video
+(le chip SHIFTER).
+
+$FFFF8240 est le premier des 16 registres de couleur GEM.
+Chaque registre est un WORD (2 octets) au format $0RGB :
+  - bits 8-10 : composante rouge   (0 a 7)
+  - bits 4-6  : composante verte   (0 a 7)
+  - bits 0-2  : composante bleue   (0 a 7)
+
+Les 16 registres occupent 32 octets consecutifs :
+  $FFFF8240 -> couleur 0  (fond)
+  $FFFF8242 -> couleur 1
+  ...
+  $FFFF825E -> couleur 15
+
+movem.l lit 8 LONGS soit 32 octets, ce qui couvre exactement
+les 16 registres en une seule instruction.
+
+
+CE QUE FAIT CHAQUE LIGNE
+-------------------------
+
+PUSHALL
+  -> Sauvegarde d0-d7 et a0-a6 sur la pile.
+     On va ecraser d0-d7, il faut les proteger.
+
+movem.l PAL_BASE,d0-d7
+  -> Lit 8 longs (32 octets) depuis $FFFF8240.
+     Capture les 16 registres de couleur du SHIFTER dans d0 a d7.
+     d0 contient les couleurs 0 et 1, d1 les couleurs 2 et 3, etc.
+
+movem.l d0-d7,SYS_GEM_PAL
+  -> Ecrit ces 8 longs dans notre zone BSS (SYS_GEM_PAL = 8 longs).
+     La palette GEM est maintenant sauvegardee en RAM programme.
+
+POPALL
+  -> Restaure d0-d7 et a0-a6 depuis la pile.
+     Le code appelant ne voit aucune difference dans les registres.
+
+
+RESUME : IMPLICATION MEMOIRE
+------------------------------
+
+  $FFFF8240 (PAL_BASE)   Registres hardware du SHIFTER (pas de la RAM).
+                          Ecrire ici change les couleurs a l'ecran immediatement.
+                          Lire ici donne les couleurs actuellement affichees.
+
+  SYS_GEM_PAL (BSS)      Zone de 32 octets en RAM programme.
+                          Photographie de la palette au moment du demarrage.
+                          Sera recopiee dans $FFFF8240 a la sortie du jeu
+                          pour rendre au GEM ses couleurs d'origine.
+
+  Pile superviseur (SSP)  Augmentee de 60 octets le temps de la routine
+                          (15 registres x 4 octets), puis restauree a son
+                          niveau initial par POPALL avant le RTS.
+
+
+CARTE MEMOIRE DES ZONES IMPLIQUEES
+------------------------------------
+
+  RAM programme (BSS)
+  |----------------------------------|
+  |  SYS_GEM_PAL  (32 octets)        |  <-- copie de la palette sauvegardee
+  |----------------------------------|
+
+  Registres hardware (hors RAM)
+  |----------------------------------|
+  |  $FFFF8240 a $FFFF825E           |  <-- 16 registres couleur du SHIFTER
+  |  (32 octets, 16 words)           |      lecture/ecriture = effet immediat
+  |----------------------------------|

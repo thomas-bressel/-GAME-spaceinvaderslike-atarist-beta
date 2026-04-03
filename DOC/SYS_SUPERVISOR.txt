@@ -1,0 +1,78 @@
+SYS_SUPERVISOR - Explication technique
+=======================================
+
+
+LE CODE
+-------
+
+SYS_SUPERVISOR:
+        move.l  SYS_USP_L,d0
+        move.l  d0,-(sp)
+        move.w  #_Super,-(sp)
+        trap    #GEMDOS
+        add.w   #6,sp
+        move.l  d0,SYS_USP_L
+        rts
+
+
+CE QUE CA IMPLIQUE DANS LA MEMOIRE DU TOS
+------------------------------------------
+
+Le point central : le 68000 a DEUX PILES SEPAREES selon le mode CPU.
+
+
+LE CONTEXTE MEMOIRE AVANT L'APPEL
+----------------------------------
+
+En mode USER (mode normal, la ou tourne ton programme), le CPU utilise USP
+(User Stack Pointer) -- un registre dedie, invisible en mode superviseur.
+
+SYS_USP_L est a 0 au depart, ce qui sert de flag "pas encore passe en supervisor".
+
+
+CE QUI SE PASSE PILE A PILE LORS DU TRAP #GEMDOS
+-------------------------------------------------
+
+Quand tu empiles _Super et que tu fais trap :
+
+1. Le CPU bascule automatiquement sur la SSP (Supervisor Stack Pointer)
+   -- une pile differente, typiquement dans la RAM basse du TOS.
+
+2. Le TOS pousse sur cette SSP : le SR (Status Register) + le PC de retour.
+
+3. Le gestionnaire GEMDOS de _Super s'execute en mode superviseur.
+
+4. Il retourne dans d0 l'ANCIENNE VALEUR DE USP (c'est le contrat de cet appel).
+
+
+CE QUE L'ON FAIT AVEC CE RETOUR
+---------------------------------
+
+        move.l  d0,SYS_USP_L
+
+On memorise l'adresse de la pile user au moment du passage. C'est crucial parce que :
+
+- Tant que l'on est en supervisor, USP n'est plus accessible normalement.
+
+- Pour repasser en user (appel _Super avec -1 en argument), le TOS a besoin
+  de RETROUVER CETTE VALEUR pour restaurer USP.
+
+- Sans ca, au retour en mode user, la pile serait corrompue.
+
+
+RESUME : IMPLICATION MEMOIRE
+------------------------------
+
+                  AVANT                         APRES
+                  -----                         -----
+  Pile CPU        CPU pointe sur USP            CPU pointe sur SSP
+                  (ta pile programme)           (pile du TOS, RAM basse)
+
+  SYS_USP_L       = 0 (flag "pas encore")       = adresse de ta pile user
+
+  Mode CPU        User (bit S=0 dans SR)        Supervisor (bit S=1 dans SR)
+
+
+Le TOS gere deux espaces de pile physiquement distincts en memoire.
+Ce code sauvegarde le "pont de retour" entre les deux.
+Sans cette sauvegarde, le retour en mode user corromprait la pile du programme.
