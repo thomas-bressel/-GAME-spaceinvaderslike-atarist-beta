@@ -45,6 +45,9 @@ BCL_PLAY:
         bne     .SKIP_INIT
         jsr     PLAY_INIT_STATE
 .SKIP_INIT:
+        ; --- enemies : move, restore bg, redraw (first : bullet captures bg with enemies drawn) ---
+        jsr     ENEMIES_UPDATE
+
         ; --- ship : move, restore/save/draw ---
         jsr     SHIP_UPDATE
 
@@ -56,6 +59,4 @@ BCL_PLAY:
         bne     .NO_KILL
         move.w  #STATE_DEATH,GAME_STATE
 .NO_KILL:
-        ; --- enemies : move, redraw ---
-        jsr     ENEMIES_UPDATE
         rts
