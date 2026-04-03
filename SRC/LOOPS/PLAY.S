@@ -46,12 +46,15 @@ BCL_PLAY:
         jsr     PLAY_INIT_STATE
 .SKIP_INIT:
         ; --- enemies : move, restore bg, redraw (first : bullet captures bg with enemies drawn) ---
+        move.w  #$0700,PAL_BASE             ; DBG : ENEMIES = RED
         jsr     ENEMIES_UPDATE
 
         ; --- ship : move, restore/save/draw ---
+        move.w  #$0070,PAL_BASE             ; DBG : SHIP = GREEN
         jsr     SHIP_UPDATE
 
         ; --- bullet : fire, move, restore/save/draw ---
+        move.w  #$0007,PAL_BASE             ; DBG : BULLET = BLUE
         jsr     BULLET_UPDATE
 
         ; --- handle kill (KEY_K) -> STATE_DEATH ---

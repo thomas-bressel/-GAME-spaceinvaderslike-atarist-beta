@@ -98,7 +98,7 @@ MAIN_LOOP:
 
         move.b  IKBD_DATA,KEY_CUR           ; read keyboard once per frame
 
-        jsr     DBG_RED                     ; CPU meter start : border RED
+        ; jsr     DBG_RED                   ; CPU meter start : border RED (disabled - per-routine colors in BCL_PLAY)
         jsr     DBG_STATE_SWITCH            ; DEBUG : F1-F6 switch game state
 
         ; --- state dispatcher ---
@@ -136,7 +136,7 @@ MAIN_LOOP:
         jsr     BCL_NEXT_LVL
         bra     .ST_END
 .ST_END:
-        jsr     DBG_BLACK                   ; CPU meter end : border BLACK
+        jsr     DBG_BLACK                   ; CPU meter end : border BLACK (used as reset after per-routine colors)
 	
         ; --- check ESCAPE key to quit ---
         cmp.b   #KEY_ESC,KEY_CUR
